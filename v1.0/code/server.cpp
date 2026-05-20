@@ -2,16 +2,18 @@
 #include<string>
 #include<vector>
 #include<mutex>
-#include<sctring>
+#include<thread>
+#include<cstring>
 #include<sys/socket.h>
 #include<netinet/in.h>
-#include<arpa/inet/h>
+#include<arpa/inet.h>
 #include<unistd.h>
+#include<algorithm>
 
 std::vector<int>client_fds;
 std::mutex client_mutex;
 
-void broadcoast(const string& msg,int sender_fd){
+void broadcast(const std::string& msg,int sender_fd){
     std::lock_guard<std::mutex>lock(client_mutex);
     for(int fd:client_fds){
         if(fd != sender_fd){
@@ -20,7 +22,7 @@ void broadcoast(const string& msg,int sender_fd){
     }
 }
 
-handle_client(int client_fd){
+void handle_client(int client_fd){
     char buffer[1024];
    
     while(true){
@@ -29,17 +31,18 @@ handle_client(int client_fd){
     int bytes = recv(client_fd,buffer,sizeof(buffer)-1,0);
     if( bytes <= 0){
         std::lock_guard<std::mutex>lock(client_mutex);
-        auto it = std::find_if(client_fds.begin(),client_fds.end(),[client_fd](int fd){return fd == client_fd})
-        if(fd!=client_fds.end()){
-            client_fds.eraser(it);
+        for(auto it = client_fds.begin();it != client_fds.end();++it){
+           if(*it == client_fd){
+            client_fds.erase(it);
             break;
-            }
+           }
+        }
         close(client_fd);
         std::cerr<<"Client disconnected.fd"<<std::endl;
         break;
         }
     std::string msg(buffer);
-    std::cout<<"reveived From fd:"<<client_fd<<std::endl;
+    std::cout<<"reveived From fd:"<<client_fd<<"\nmsg:"<<msg<<std::endl;
     broadcast(msg,client_fd);
     }
 }
@@ -66,18 +69,18 @@ int main(){
         return -1;
     }
 
-    if(listen(socket_fd,10)<0){
+    if(listen(server_fd,10)<0){
         std::cerr<<"Listen Failed!\n";
         return -1;
     }
 
-    std::cout<<"Server listening on port 6666.\n";
+    std::cout<<"Server listening on port 8888.\n";
 
     while(true){
         sockaddr_in client_addr;
         socklen_t len = sizeof(client_addr);
 
-        int client_fd = accept(server_fd,(sockaddr*)client_addr,&len);
+        int client_fd = accept(server_fd,(sockaddr*)&client_addr,&len);
         if(client_fd < 0){
             std::cerr << "/Accepted Failed!\n";
             continue;
